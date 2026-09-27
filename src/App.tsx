@@ -1,26 +1,32 @@
-// Корневой экран приложения: состояние грамот/ориентации и раскладка
-// (переключатель ориентации, список слева, превью по центру, параметры справа).
+// Корневой экран: список слева, превью + общие параметры по центру, уникальные справа.
 
 import { useState } from 'react'
 import { CertificatePreview } from './CertificatePreview'
 import { CertificateList, createCertificate } from './CertificateList'
+import { SharedParamsPanel } from './SharedParamsPanel'
 import { SidePanel } from './SidePanel'
-import type { Certificate, Orientation } from './types'
+import {
+  createDefaultSharedParams,
+  type Certificate,
+  type SharedCertificateParams,
+} from './types'
 import './App.css'
 
 function App() {
-  // --- Состояние: ориентация листа, список грамот, выбранная грамота ---
-  const [orientation, setOrientation] = useState<Orientation>('portrait')
+  // --- Состояние: грамоты, выбор, общие параметры шаблона ---
   const [initialCertificate] = useState(() => createCertificate())
   const [certificates, setCertificates] = useState<Certificate[]>([
     initialCertificate,
   ])
   const [selectedId, setSelectedId] = useState(initialCertificate.id)
+  const [sharedParams, setSharedParams] = useState<SharedCertificateParams>(
+    createDefaultSharedParams,
+  )
 
   const selectedCertificate =
     certificates.find((item) => item.id === selectedId) ?? certificates[0]
 
-  // --- Обработчики списка грамот (добавление / удаление / переименование) ---
+  // --- Обработчики списка грамот ---
   function handleAdd() {
     const next = createCertificate()
     setCertificates((prev) => [...prev, next])
@@ -44,35 +50,7 @@ function App() {
 
   return (
     <div className="app">
-      {/* Переключатель ориентации превью */}
-      <div className="orientation-controls" role="group" aria-label="Ориентация листа">
-        <button
-          type="button"
-          className={
-            orientation === 'portrait'
-              ? 'orientation-controls__btn orientation-controls__btn--active'
-              : 'orientation-controls__btn'
-          }
-          aria-pressed={orientation === 'portrait'}
-          onClick={() => setOrientation('portrait')}
-        >
-          Вертикальная
-        </button>
-        <button
-          type="button"
-          className={
-            orientation === 'landscape'
-              ? 'orientation-controls__btn orientation-controls__btn--active'
-              : 'orientation-controls__btn'
-          }
-          aria-pressed={orientation === 'landscape'}
-          onClick={() => setOrientation('landscape')}
-        >
-          Горизонтальная
-        </button>
-      </div>
-
-      {/* Левая панель: список грамот */}
+      {/* Левая колонка: список грамот */}
       <SidePanel side="left" title="Список грамот">
         <CertificateList
           certificates={certificates}
@@ -84,13 +62,20 @@ function App() {
         />
       </SidePanel>
 
-      {/* Центральное поле предпросмотра листа */}
-      <CertificatePreview orientation={orientation} />
+      {/* Центр: превью сверху, общие параметры снизу */}
+      <div className="app__center">
+        <div className="app__preview">
+          <CertificatePreview params={sharedParams} />
+        </div>
+        <div className="app__shared">
+          <SharedParamsPanel params={sharedParams} onChange={setSharedParams} />
+        </div>
+      </div>
 
-      {/* Правая панель: параметры выбранной грамоты (заголовок = имя) */}
+      {/* Правая колонка: параметры выбранной грамоты */}
       <SidePanel side="right" title={selectedCertificate.name}>
         <p className="side-panel__placeholder">
-          Параметры выбранной грамоты появятся здесь позже.
+          Уникальные параметры грамоты появятся здесь позже.
         </p>
       </SidePanel>
     </div>

@@ -13,6 +13,7 @@ export function SidePanel({ side, title, children }: SidePanelProps) {
   return (
     <aside
       className={`side-panel side-panel--${side}`}
+      data-side={side}
       aria-label={title}
     >
       <header className="side-panel__header">

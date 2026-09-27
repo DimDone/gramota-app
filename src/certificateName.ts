@@ -1,8 +1,8 @@
-// Правила имени грамоты: разрешённые символы, мягкая фильтрация при вводе
-// и строгая проверка при сохранении (дефис только между буквами).
+// Правила имени грамоты и ФИО: фильтрация при вводе и строгая проверка.
 
 const LETTER = /[A-Za-zА-Яа-яЁё]/
 const ALLOWED_CHARS = /^[A-Za-zА-Яа-яЁё0-9 \-]*$/
+const PERSON_ALLOWED_CHARS = /^[A-Za-zА-Яа-яЁё \-]*$/
 
 /** Итоговое имя: слова из букв/цифр, дефис только как «буква-буква», слова через пробел. */
 const VALID_NAME =
@@ -11,16 +11,15 @@ const VALID_NAME =
 export const DEFAULT_CERTIFICATE_NAME = 'Грамота'
 export const MAX_CERTIFICATE_NAME_LENGTH = 255
 
-/**
- * Фильтр во время набора: оставляет допустимые символы, режет длину,
- * убирает ведущие пробел/дефис и повторы (--, двойные пробелы).
- * Одиночный дефис после буквы разрешён — иначе нельзя набрать «Иванов-Петров».
- */
-export function filterCertificateNameInput(value: string): string {
+function filterNameLikeInput(
+  value: string,
+  allowedChar: RegExp,
+  maxLength: number,
+): string {
   let filtered = [...value]
-    .filter((ch) => ALLOWED_CHARS.test(ch))
+    .filter((ch) => allowedChar.test(ch))
     .join('')
-    .slice(0, MAX_CERTIFICATE_NAME_LENGTH)
+    .slice(0, maxLength)
 
   filtered = filtered.replace(/^[ -]+/, '')
   filtered = filtered.replace(/ {2,}/g, ' ')
@@ -36,10 +35,20 @@ export function filterCertificateNameInput(value: string): string {
     result += ch
   }
 
-  return result.slice(0, MAX_CERTIFICATE_NAME_LENGTH)
+  return result.slice(0, maxLength)
 }
 
-/** Строгая проверка готового имени (на blur / Enter). «----» и висячий дефис не проходят. */
+/** Фильтр названия грамоты: буквы, цифры, пробел, дефис. */
+export function filterCertificateNameInput(value: string): string {
+  return filterNameLikeInput(value, ALLOWED_CHARS, MAX_CERTIFICATE_NAME_LENGTH)
+}
+
+/** Фильтр ФИО: только буквы, пробел и дефис (без цифр). */
+export function filterPersonNameInput(value: string, maxLength = 255): string {
+  return filterNameLikeInput(value, PERSON_ALLOWED_CHARS, maxLength)
+}
+
+/** Строгая проверка готового имени (на blur / Enter). */
 export function isValidCertificateName(value: string): boolean {
   return (
     value.length > 0 &&

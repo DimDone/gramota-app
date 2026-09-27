@@ -1,25 +1,41 @@
-// Поле предпросмотра грамоты (белый лист A4) с общими текстовыми блоками.
+// Поле предпросмотра грамоты (A4): фиксированный порядок + замер свободного места.
 
+import { useLayoutEffect, useRef } from 'react'
+import { CertificateBackground } from './backgrounds/CertificateBackground'
+import { getBackgroundTheme } from './backgrounds/themes'
 import { pageSizeMm, PT_TO_MM } from './pageGeometry'
-import type { CommonTextBlockId, SharedCertificateParams } from './types'
+import {
+  DOCUMENT_KIND_LABEL,
+  DOCUMENT_VERB_LABEL,
+  LAYOUT_GAP_MIN_PX,
+  MAX_APPROVERS,
+  ROMAN_DEGREE,
+  type Certificate,
+  type FontSectionId,
+  type LayoutCapacity,
+  type SharedCertificateParams,
+} from './types'
 import './CertificatePreview.css'
 
 type CertificatePreviewProps = {
   params: SharedCertificateParams
+  certificate: Certificate
+  onLayoutCapacity?: (capacity: LayoutCapacity) => void
 }
 
-const DOCUMENT_KIND_LABEL: Record<SharedCertificateParams['documentKind'], string> = {
-  gramota: 'Грамота',
-  diplom: 'Диплом',
-}
-
-const FOOTER_BLOCKS = new Set<CommonTextBlockId>(['approved', 'cityYear'])
-
-export function CertificatePreview({ params }: CertificatePreviewProps) {
-  const { orientation, textBlockOrder, marginsMm, fontSizesPt } = params
+export function CertificatePreview({
+  params,
+  certificate,
+  onLayoutCapacity,
+}: CertificatePreviewProps) {
+  const { orientation, marginsMm, fontSizesPt, backgroundId } = params
   const { widthMm, heightMm } = pageSizeMm(orientation)
+  const backgroundTheme = getBackgroundTheme(backgroundId)
 
-  // Отступы (мм → % высоты/ширины A4) и кегль (pt → cqw от ширины листа)
+  const spacerTopRef = useRef<HTMLDivElement>(null)
+  const spacerBottomRef = useRef<HTMLDivElement>(null)
+  const approvedRef = useRef<HTMLDivElement>(null)
+
   const padStyle = {
     paddingTop: `${(marginsMm.top / heightMm) * 100}%`,
     paddingRight: `${(marginsMm.right / widthMm) * 100}%`,
@@ -27,21 +43,65 @@ export function CertificatePreview({ params }: CertificatePreviewProps) {
     paddingLeft: `${(marginsMm.left / widthMm) * 100}%`,
   }
 
-  function fontStyle(blockId: CommonTextBlockId) {
-    const sizeMm = fontSizesPt[blockId] * PT_TO_MM
+  function fontStyle(section: FontSectionId) {
+    const sizeMm = fontSizesPt[section] * PT_TO_MM
     return { fontSize: `${(sizeMm / widthMm) * 100}cqw` }
   }
 
-  // «Утвердили» и «Город и год» всегда в футере; остальные — в основной зоне
-  const mainBlocks = textBlockOrder.filter((id) => !FOOTER_BLOCKS.has(id))
+  // Замер свободного зазора: spacers сжаты → блоки соприкасаются
+  useLayoutEffect(() => {
+    if (!onLayoutCapacity) return
 
-  const city = params.city.trim()
-  const year = params.year.trim()
-  const cityYearText = [city, year].filter(Boolean).join(', ')
+    function measure() {
+      const top = spacerTopRef.current?.getBoundingClientRect().height ?? 0
+      const bottom =
+        spacerBottomRef.current?.getBoundingClientRect().height ?? 0
+      const freeGapPx = top + bottom
 
-  const approverRows = params.approvers.filter(
-    (item) => item.title.trim() || item.name.trim(),
-  )
+      const approvedH = approvedRef.current?.getBoundingClientRect().height ?? 24
+      const rows = Math.max(1, params.approvers.length)
+      const rowEstimate = approvedH / rows
+
+      onLayoutCapacity?.({
+        freeGapPx,
+        canExpandText: freeGapPx > LAYOUT_GAP_MIN_PX,
+        canAddApprover:
+          params.approvers.length < MAX_APPROVERS &&
+          freeGapPx > rowEstimate + LAYOUT_GAP_MIN_PX,
+      })
+    }
+
+    measure()
+
+    const observer = new ResizeObserver(measure)
+    if (spacerTopRef.current) observer.observe(spacerTopRef.current)
+    if (spacerBottomRef.current) observer.observe(spacerBottomRef.current)
+    if (approvedRef.current) observer.observe(approvedRef.current)
+
+    return () => observer.disconnect()
+  }, [
+    onLayoutCapacity,
+    params,
+    certificate,
+    orientation,
+    marginsMm,
+    fontSizesPt,
+    backgroundId,
+  ])
+
+  const cityYearText = [params.city.trim(), params.year.trim()]
+    .filter(Boolean)
+    .join(', ')
+
+  const degreeLine =
+    params.documentKind === 'diplom' && certificate.degree != null
+      ? `${ROMAN_DEGREE[certificate.degree]} степени`
+      : null
+
+  const placeLine =
+    params.documentKind === 'gramota' && certificate.place != null
+      ? `за ${certificate.place} место`
+      : null
 
   return (
     <div className="preview-anchor" aria-label="Предпросмотр грамоты">
@@ -54,61 +114,127 @@ export function CertificatePreview({ params }: CertificatePreviewProps) {
               ? 'Грамота, вертикальная ориентация'
               : 'Грамота, горизонтальная ориентация'
           }
+          style={{ backgroundColor: backgroundTheme.paper }}
         >
+          <CertificateBackground
+            orientation={orientation}
+            theme={backgroundTheme}
+          />
+
           <div className="preview-sheet__content" style={padStyle}>
-            {/* Верхняя зона: блоки, не привязанные к низу листа */}
-            <div className="preview-sheet__main">
-              {mainBlocks.map((blockId) => {
-                if (blockId === 'documentType') {
-                  return (
-                    <p
-                      key={blockId}
-                      className="preview-block preview-block--documentType"
-                      style={fontStyle(blockId)}
-                    >
-                      {DOCUMENT_KIND_LABEL[params.documentKind]}
-                    </p>
-                  )
-                }
+            {/*
+              Порядок блоков на листе:
+              организация → вид документа → степень → глагол →
+              ФИО → инфо о награждаемом → место → мероприятие →
+              утвердили → город/год
+            */}
+            <div className="preview-sheet__top">
+              {params.organization.trim() && (
+                <p
+                  className="preview-block preview-block--organization"
+                  style={fontStyle('organization')}
+                >
+                  {params.organization}
+                </p>
+              )}
 
-                if (blockId === 'organization') {
-                  if (!params.organization.trim()) return null
-                  return (
-                    <p
-                      key={blockId}
-                      className="preview-block preview-block--organization"
-                      style={fontStyle(blockId)}
-                    >
-                      {params.organization}
-                    </p>
-                  )
-                }
+              <div className="preview-doc-group">
+                <p
+                  className="preview-block preview-block--documentType"
+                  style={fontStyle('documentType')}
+                >
+                  {DOCUMENT_KIND_LABEL[params.documentKind]}
+                </p>
 
-                return null
-              })}
-            </div>
+                {degreeLine && (
+                  <p
+                    className="preview-block preview-block--rank"
+                    style={fontStyle('documentVerb')}
+                  >
+                    {degreeLine}
+                  </p>
+                )}
 
-            {/* Низ листа: «Утвердили» над «Город и год»; место под город/год всегда зарезервировано */}
-            <div className="preview-sheet__footer">
-              <div
-                className="preview-block preview-block--approved"
-                style={fontStyle('approved')}
-              >
-                {approverRows.map((item) => (
-                  <div key={item.id} className="preview-approver">
-                    <span className="preview-approver__title">{item.title}</span>
-                    <span className="preview-approver__name">{item.name}</span>
-                  </div>
-                ))}
+                <p
+                  className="preview-block preview-block--documentVerb"
+                  style={fontStyle('documentVerb')}
+                >
+                  {DOCUMENT_VERB_LABEL[params.documentKind]}
+                </p>
               </div>
 
-              <p
-                className="preview-block preview-block--cityYear"
-                style={fontStyle('cityYear')}
-              >
-                {cityYearText || '\u00A0'}
-              </p>
+              {certificate.recipientName.trim() && (
+                <p
+                  className="preview-block preview-block--recipientName"
+                  style={fontStyle('recipientName')}
+                >
+                  {certificate.recipientName}
+                </p>
+              )}
+
+              {certificate.recipientInfo.trim() && (
+                <p
+                  className="preview-block preview-block--recipient"
+                  style={fontStyle('recipientInfo')}
+                >
+                  {certificate.recipientInfo}
+                </p>
+              )}
+
+              {placeLine && (
+                <p
+                  className="preview-block preview-block--rank"
+                  style={fontStyle('documentVerb')}
+                >
+                  {placeLine}
+                </p>
+              )}
             </div>
+
+            <div className="preview-sheet__middle">
+              <p
+                className="preview-block preview-block--eventInfo"
+                style={fontStyle('eventInfo')}
+              >
+                {certificate.eventInfo.trim() || '\u00A0'}
+              </p>
+
+              <div className="preview-sheet__balance">
+                <div
+                  ref={spacerTopRef}
+                  className="preview-sheet__spacer"
+                  aria-hidden="true"
+                />
+
+                <div
+                  ref={approvedRef}
+                  className="preview-block preview-block--approved"
+                  style={fontStyle('approved')}
+                >
+                  {params.approvers.map((item) => (
+                    <div key={item.id} className="preview-approver">
+                      <span className="preview-approver__title">
+                        {item.title}
+                      </span>
+                      <span className="preview-approver__name">{item.name}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div
+                  ref={spacerBottomRef}
+                  className="preview-sheet__spacer"
+                  aria-hidden="true"
+                />
+              </div>
+            </div>
+
+            <p
+              className="preview-block preview-block--cityYear"
+              style={fontStyle('cityYear')}
+            >
+              {cityYearText || '\u00A0'}
+            </p>
           </div>
         </div>
       </div>

@@ -1,19 +1,21 @@
 // Корневой экран: список слева, превью + общие параметры по центру, уникальные справа.
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { CertificatePreview } from './CertificatePreview'
 import { CertificateList, createCertificate } from './CertificateList'
 import { SharedParamsPanel } from './SharedParamsPanel'
 import { SidePanel } from './SidePanel'
+import { UniqueParamsPanel } from './UniqueParamsPanel'
 import {
   createDefaultSharedParams,
+  DEFAULT_LAYOUT_CAPACITY,
   type Certificate,
+  type LayoutCapacity,
   type SharedCertificateParams,
 } from './types'
 import './App.css'
 
 function App() {
-  // --- Состояние: грамоты, выбор, общие параметры шаблона ---
   const [initialCertificate] = useState(() => createCertificate())
   const [certificates, setCertificates] = useState<Certificate[]>([
     initialCertificate,
@@ -22,11 +24,17 @@ function App() {
   const [sharedParams, setSharedParams] = useState<SharedCertificateParams>(
     createDefaultSharedParams,
   )
+  const [layoutCapacity, setLayoutCapacity] = useState<LayoutCapacity>(
+    DEFAULT_LAYOUT_CAPACITY,
+  )
 
   const selectedCertificate =
     certificates.find((item) => item.id === selectedId) ?? certificates[0]
 
-  // --- Обработчики списка грамот ---
+  const handleLayoutCapacity = useCallback((capacity: LayoutCapacity) => {
+    setLayoutCapacity(capacity)
+  }, [])
+
   function handleAdd() {
     const next = createCertificate()
     setCertificates((prev) => [...prev, next])
@@ -48,9 +56,14 @@ function App() {
     )
   }
 
+  function handleUniqueChange(next: Certificate) {
+    setCertificates((prev) =>
+      prev.map((item) => (item.id === next.id ? next : item)),
+    )
+  }
+
   return (
     <div className="app">
-      {/* Левая колонка: список грамот */}
       <SidePanel side="left" title="Список грамот">
         <CertificateList
           certificates={certificates}
@@ -62,21 +75,31 @@ function App() {
         />
       </SidePanel>
 
-      {/* Центр: превью сверху, общие параметры снизу */}
       <div className="app__center">
         <div className="app__preview">
-          <CertificatePreview params={sharedParams} />
+          <CertificatePreview
+            params={sharedParams}
+            certificate={selectedCertificate}
+            onLayoutCapacity={handleLayoutCapacity}
+          />
         </div>
         <div className="app__shared">
-          <SharedParamsPanel params={sharedParams} onChange={setSharedParams} />
+          <SharedParamsPanel
+            params={sharedParams}
+            layout={layoutCapacity}
+            onChange={setSharedParams}
+          />
         </div>
       </div>
 
-      {/* Правая колонка: параметры выбранной грамоты */}
       <SidePanel side="right" title={selectedCertificate.name}>
-        <p className="side-panel__placeholder">
-          Уникальные параметры грамоты появятся здесь позже.
-        </p>
+        <UniqueParamsPanel
+          certificate={selectedCertificate}
+          documentKind={sharedParams.documentKind}
+          shared={sharedParams}
+          layout={layoutCapacity}
+          onChange={handleUniqueChange}
+        />
       </SidePanel>
     </div>
   )

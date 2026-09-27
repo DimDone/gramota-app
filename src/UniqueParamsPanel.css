@@ -1,0 +1,56 @@
+.unique-params {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-height: 0;
+  flex: 1;
+}
+
+.unique-params__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.unique-params__field--grow {
+  flex: 1;
+  min-height: 0;
+}
+
+.unique-params__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.unique-params__label em {
+  font-weight: 400;
+  color: var(--muted);
+  font-style: normal;
+}
+
+.unique-params__hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.unique-params__control {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  color: var(--text);
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+  resize: vertical;
+}
+
+.unique-params__control--mid {
+  min-height: 4.5rem;
+}
+
+.unique-params__control--tall {
+  flex: 1;
+  min-height: 7rem;
+}

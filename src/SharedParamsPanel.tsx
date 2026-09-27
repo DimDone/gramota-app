@@ -1,58 +1,31 @@
-// Панель общих параметров: ориентация/фон/отступы и перетаскиваемые текстовые блоки.
+// Панель общих параметров: ориентация/фон/отступы и фиксированные текстовые секции.
 
-import { useState, type DragEvent } from 'react'
+import { useState } from 'react'
+import { BACKGROUND_THEMES } from './backgrounds/themes'
 import { filterPersonNameInput } from './certificateName'
 import {
   clampFontSizePt,
   clampMarginMm,
+  limitLinesToWidth,
   maxCharsPerLine,
 } from './pageGeometry'
+import { isTextExpansion } from './textExpansion'
 import {
   createApprover,
+  DOCUMENT_VERB_LABEL,
   MAX_APPROVERS,
   type Approver,
-  type CommonTextBlockId,
   type DocumentKind,
+  type FontSectionId,
+  type LayoutCapacity,
   type SharedCertificateParams,
 } from './types'
 import './SharedParamsPanel.css'
 
 type SharedParamsPanelProps = {
   params: SharedCertificateParams
+  layout: LayoutCapacity
   onChange: (next: SharedCertificateParams) => void
-}
-
-const BLOCK_LABELS: Record<CommonTextBlockId, string> = {
-  documentType: 'Вид документа',
-  organization: 'Организация',
-  approved: 'Утвердили',
-  cityYear: 'Город и год',
-}
-
-/** Вставка beforeIndex: элемент окажется на позиции beforeIndex. */
-function moveBlock(
-  order: CommonTextBlockId[],
-  fromId: CommonTextBlockId,
-  beforeIndex: number,
-): CommonTextBlockId[] {
-  const fromIndex = order.indexOf(fromId)
-  if (fromIndex < 0) return order
-
-  const next = [...order]
-  next.splice(fromIndex, 1)
-
-  let insertAt = beforeIndex
-  if (fromIndex < beforeIndex) insertAt -= 1
-  insertAt = Math.max(0, Math.min(next.length, insertAt))
-  next.splice(insertAt, 0, fromId)
-  return next
-}
-
-function limitLine(value: string, maxChars: number): string {
-  return value
-    .split('\n')
-    .map((line) => line.slice(0, maxChars))
-    .join('\n')
 }
 
 function TrashIcon() {
@@ -66,92 +39,76 @@ function TrashIcon() {
   )
 }
 
-export function SharedParamsPanel({ params, onChange }: SharedParamsPanelProps) {
-  const [dragId, setDragId] = useState<CommonTextBlockId | null>(null)
-  const [dropBeforeIndex, setDropBeforeIndex] = useState<number | null>(null)
-  /** Черновик кегля: пока печатаем — не клампим на каждое нажатие. */
+export function SharedParamsPanel({
+  params,
+  layout,
+  onChange,
+}: SharedParamsPanelProps) {
   const [fontDrafts, setFontDrafts] = useState<
-    Partial<Record<CommonTextBlockId, string>>
+    Partial<Record<FontSectionId, string>>
   >({})
 
   function patch(partial: Partial<SharedCertificateParams>) {
     onChange({ ...params, ...partial })
   }
 
-  function charsFor(blockId: CommonTextBlockId, fraction = 1): number {
+  function charsFor(section: FontSectionId, fraction = 1): number {
     return maxCharsPerLine(
       params.orientation,
       params.marginsMm,
-      params.fontSizesPt[blockId],
+      params.fontSizesPt[section],
       fraction,
     )
   }
 
-  // --- DnD порядка текстовых блоков (линия вставки + перестановка) ---
-  function handleDragStart(
-    event: DragEvent<HTMLElement>,
-    blockId: CommonTextBlockId,
-  ) {
-    event.dataTransfer.setData('text/plain', blockId)
-    event.dataTransfer.effectAllowed = 'move'
-    setDragId(blockId)
-  }
-
-  function handleDragEnd() {
-    setDragId(null)
-    setDropBeforeIndex(null)
-  }
-
-  function updateDropIndicator(
-    event: DragEvent<HTMLElement>,
-    blockIndex: number,
-  ) {
-    event.preventDefault()
-    const rect = event.currentTarget.getBoundingClientRect()
-    const before =
-      event.clientY < rect.top + rect.height / 2 ? blockIndex : blockIndex + 1
-    setDropBeforeIndex(before)
-  }
-
-  function handleDropOnList(event: DragEvent<HTMLElement>) {
-    event.preventDefault()
-    const fromId = (event.dataTransfer.getData('text/plain') ||
-      dragId) as CommonTextBlockId | null
-    if (!fromId || dropBeforeIndex === null) {
-      handleDragEnd()
-      return
-    }
-    patch({
-      textBlockOrder: moveBlock(params.textBlockOrder, fromId, dropBeforeIndex),
-    })
-    handleDragEnd()
-  }
-
-  // --- Кегль секции: черновик при вводе, clamp на blur/Enter ---
-  function onFontDraftChange(blockId: CommonTextBlockId, raw: string) {
+  function onFontDraftChange(key: FontSectionId, raw: string) {
     if (raw === '' || /^\d{1,2}$/.test(raw)) {
-      setFontDrafts((prev) => ({ ...prev, [blockId]: raw }))
+      setFontDrafts((prev) => ({ ...prev, [key]: raw }))
     }
   }
 
-  function commitFontSize(blockId: CommonTextBlockId) {
-    const draft = fontDrafts[blockId]
+  function commitFontSize(key: FontSectionId) {
+    const draft = fontDrafts[key]
     const parsed =
       draft === undefined || draft === ''
-        ? params.fontSizesPt[blockId]
+        ? params.fontSizesPt[key]
         : Number(draft)
-    const nextSize = clampFontSizePt(parsed)
     patch({
-      fontSizesPt: { ...params.fontSizesPt, [blockId]: nextSize },
+      fontSizesPt: {
+        ...params.fontSizesPt,
+        [key]: clampFontSizePt(parsed),
+      },
     })
     setFontDrafts((prev) => {
       const next = { ...prev }
-      delete next[blockId]
+      delete next[key]
       return next
     })
   }
 
-  // --- Строки блока «Утвердили» (до MAX_APPROVERS) ---
+  function renderFontPtInput(fontKey: FontSectionId, label: string) {
+    return (
+      <label className="text-block__font">
+        <span>pt</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={fontDrafts[fontKey] ?? String(params.fontSizesPt[fontKey])}
+          aria-label={`Размер шрифта: ${label}`}
+          onChange={(event) => onFontDraftChange(fontKey, event.target.value)}
+          onBlur={() => commitFontSize(fontKey)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              commitFontSize(fontKey)
+              ;(event.target as HTMLInputElement).blur()
+            }
+          }}
+        />
+      </label>
+    )
+  }
+
   function updateApprover(id: string, partial: Partial<Approver>) {
     patch({
       approvers: params.approvers.map((item) =>
@@ -162,6 +119,7 @@ export function SharedParamsPanel({ params, onChange }: SharedParamsPanelProps) 
 
   function addApprover() {
     if (params.approvers.length >= MAX_APPROVERS) return
+    if (!layout.canAddApprover) return
     patch({ approvers: [...params.approvers, createApprover()] })
   }
 
@@ -170,9 +128,7 @@ export function SharedParamsPanel({ params, onChange }: SharedParamsPanelProps) 
     patch({ approvers: params.approvers.filter((item) => item.id !== id) })
   }
 
-  // Лимиты символов в строке от ширины A4, полей и кегля
   const orgMax = charsFor('organization')
-  const cityMax = charsFor('cityYear', 0.72)
   const titleMax = charsFor('approved', 0.46)
   const nameMax = charsFor('approved', 0.46)
 
@@ -183,7 +139,7 @@ export function SharedParamsPanel({ params, onChange }: SharedParamsPanelProps) 
       </header>
 
       <div className="shared-params__content">
-        {/* Секция: ориентация, фон, поля в мм */}
+        {/* Ориентация, фон, поля (отступы) */}
         <div className="shared-params__section">
           <h3 className="shared-params__section-title">Ориентация, фон и поля</h3>
 
@@ -232,9 +188,11 @@ export function SharedParamsPanel({ params, onChange }: SharedParamsPanelProps) 
                 value={params.backgroundId}
                 onChange={(event) => patch({ backgroundId: event.target.value })}
               >
-                <option value="none">Без фона</option>
-                <option value="classic">Классический (скоро)</option>
-                <option value="ornament">Орнамент (скоро)</option>
+                {BACKGROUND_THEMES.map((theme) => (
+                  <option key={theme.id} value={theme.id}>
+                    {theme.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -271,201 +229,185 @@ export function SharedParamsPanel({ params, onChange }: SharedParamsPanelProps) 
           </div>
         </div>
 
-        {/* Секция: общий текст — DnD с линией вставки */}
-        <div className="shared-params__section shared-params__section--text">
-          <h3 className="shared-params__section-title">
-            Общий текст
-            <span className="shared-params__hint">
-              Перетащите блоки за ⋮⋮ — линия покажет место вставки
-            </span>
-          </h3>
+        {/* Общий текст: организация → вид/глагол → утвердили → город/год */}
+        <div className="shared-params__section">
+          <h3 className="shared-params__section-title">Общий текст</h3>
 
-          <div
-            className="shared-params__blocks"
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={handleDropOnList}
-          >
-            {params.textBlockOrder.map((blockId, blockIndex) => (
-              <div key={blockId} className="text-block-slot">
-                {dragId &&
-                  dropBeforeIndex === blockIndex &&
-                  dragId !== blockId && (
-                    <div className="drop-line" aria-hidden="true" />
-                  )}
-
-                <article
-                  className={
-                    dragId === blockId
-                      ? 'text-block text-block--dragging'
-                      : 'text-block'
+          <article className="text-block">
+            <div className="text-block__head">
+              <span className="text-block__label">Организация</span>
+              {renderFontPtInput('organization', 'Организация')}
+            </div>
+            <div className="text-block__body">
+              <textarea
+                className="shared-params__control shared-params__control--tall"
+                value={params.organization}
+                placeholder="Название организации"
+                aria-label="Организация"
+                rows={3}
+                onChange={(event) => {
+                  const next = limitLinesToWidth(event.target.value, orgMax)
+                  if (
+                    isTextExpansion(params.organization, next) &&
+                    !layout.canExpandText
+                  ) {
+                    return
                   }
-                  onDragOver={(event) => updateDropIndicator(event, blockIndex)}
+                  patch({ organization: next })
+                }}
+              />
+              <span className="shared-params__hint">
+                До {orgMax} символов в строке
+                {!layout.canExpandText
+                  ? ' · на листе нет места для увеличения'
+                  : ''}
+              </span>
+            </div>
+          </article>
+
+          <article className="text-block">
+            <div className="text-block__head">
+              <span className="text-block__label">Вид документа</span>
+              {renderFontPtInput('documentType', 'Вид документа')}
+            </div>
+            <div className="text-block__body">
+              <div className="document-type-fields">
+                <select
+                  className="shared-params__control"
+                  value={params.documentKind}
+                  aria-label="Вид документа"
+                  onChange={(event) =>
+                    patch({
+                      documentKind: event.target.value as DocumentKind,
+                    })
+                  }
                 >
-                  <div
-                    className="text-block__head"
-                    draggable
-                    onDragStart={(event) => handleDragStart(event, blockId)}
-                    onDragEnd={handleDragEnd}
-                    title="Перетащите, чтобы изменить порядок"
-                  >
-                    <span className="text-block__drag" aria-hidden="true">
-                      ⋮⋮
-                    </span>
-                    <span className="text-block__label">{BLOCK_LABELS[blockId]}</span>
+                  <option value="gramota">Грамота</option>
+                  <option value="diplom">Диплом</option>
+                </select>
 
-                    <label className="text-block__font">
-                      <span>pt</span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={
-                          fontDrafts[blockId] ??
-                          String(params.fontSizesPt[blockId])
-                        }
-                        aria-label={`Размер шрифта: ${BLOCK_LABELS[blockId]}`}
-                        onChange={(event) =>
-                          onFontDraftChange(blockId, event.target.value)
-                        }
-                        onBlur={() => commitFontSize(blockId)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault()
-                            commitFontSize(blockId)
-                            ;(event.target as HTMLInputElement).blur()
-                          }
-                        }}
-                        onMouseDown={(event) => event.stopPropagation()}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="text-block__body">
-                    {blockId === 'documentType' && (
-                      <select
-                        className="shared-params__control"
-                        value={params.documentKind}
-                        aria-label="Вид документа"
-                        onChange={(event) =>
-                          patch({
-                            documentKind: event.target.value as DocumentKind,
-                          })
-                        }
-                      >
-                        <option value="gramota">Грамота</option>
-                        <option value="diplom">Диплом</option>
-                      </select>
-                    )}
-
-                    {blockId === 'organization' && (
-                      <textarea
-                        className="shared-params__control shared-params__control--tall"
-                        value={params.organization}
-                        placeholder="Название организации"
-                        aria-label="Организация"
-                        rows={3}
-                        onChange={(event) =>
-                          patch({
-                            organization: limitLine(event.target.value, orgMax),
-                          })
-                        }
-                      />
-                    )}
-
-                    {blockId === 'approved' && (
-                      <div className="approvers">
-                        {params.approvers.map((approver) => (
-                          <div key={approver.id} className="approvers__row">
-                            <input
-                              className="shared-params__control"
-                              value={approver.title}
-                              placeholder="Должность / регалии"
-                              aria-label="Должность утвердившего"
-                              maxLength={titleMax}
-                              onChange={(event) =>
-                                updateApprover(approver.id, {
-                                  title: event.target.value.slice(0, titleMax),
-                                })
-                              }
-                            />
-                            <input
-                              className="shared-params__control"
-                              value={approver.name}
-                              placeholder="ФИО"
-                              aria-label="ФИО утвердившего"
-                              maxLength={nameMax}
-                              onChange={(event) =>
-                                updateApprover(approver.id, {
-                                  name: filterPersonNameInput(
-                                    event.target.value,
-                                    nameMax,
-                                  ),
-                                })
-                              }
-                            />
-                            <button
-                              type="button"
-                              className="approvers__trash"
-                              aria-label="Удалить строку утвердившего"
-                              disabled={params.approvers.length <= 1}
-                              title={
-                                params.approvers.length <= 1
-                                  ? 'Нужна хотя бы одна строка'
-                                  : 'Удалить'
-                              }
-                              onClick={() => removeApprover(approver.id)}
-                            >
-                              <TrashIcon />
-                            </button>
-                          </div>
-                        ))}
-
-                        <button
-                          type="button"
-                          className="approvers__add"
-                          disabled={params.approvers.length >= MAX_APPROVERS}
-                          onClick={addApprover}
-                        >
-                          Добавить утвердившего
-                        </button>
-                      </div>
-                    )}
-
-                    {blockId === 'cityYear' && (
-                      <div className="shared-params__pair shared-params__pair--city-year">
-                        <input
-                          className="shared-params__control"
-                          value={params.city}
-                          placeholder="Город"
-                          aria-label="Город"
-                          maxLength={cityMax}
-                          onChange={(event) =>
-                            patch({ city: event.target.value.slice(0, cityMax) })
-                          }
-                        />
-                        <input
-                          className="shared-params__control shared-params__control--year"
-                          value={params.year}
-                          placeholder="Год"
-                          aria-label="Год"
-                          inputMode="numeric"
-                          maxLength={4}
-                          onChange={(event) =>
-                            patch({
-                              year: event.target.value.replace(/[^\d]/g, '').slice(0, 4),
-                            })
-                          }
-                        />
-                      </div>
-                    )}
-                  </div>
-                </article>
+                <div className="document-type-fields__verb">
+                  <span className="shared-params__label">
+                    «{DOCUMENT_VERB_LABEL[params.documentKind]}» (не
+                    редактируется)
+                  </span>
+                  {renderFontPtInput(
+                    'documentVerb',
+                    DOCUMENT_VERB_LABEL[params.documentKind],
+                  )}
+                </div>
               </div>
-            ))}
+            </div>
+          </article>
 
-            {dragId && dropBeforeIndex === params.textBlockOrder.length && (
-              <div className="drop-line" aria-hidden="true" />
-            )}
-          </div>
+          <article className="text-block">
+            <div className="text-block__head">
+              <span className="text-block__label">Утвердили</span>
+              {renderFontPtInput('approved', 'Утвердили')}
+            </div>
+            <div className="text-block__body">
+              <div className="approvers">
+                {params.approvers.map((approver) => (
+                  <div key={approver.id} className="approvers__row">
+                    <input
+                      className="shared-params__control"
+                      value={approver.title}
+                      placeholder="Должность / регалии"
+                      aria-label="Должность утвердившего"
+                      maxLength={titleMax}
+                      onChange={(event) =>
+                        updateApprover(approver.id, {
+                          title: event.target.value.slice(0, titleMax),
+                        })
+                      }
+                    />
+                    <input
+                      className="shared-params__control"
+                      value={approver.name}
+                      placeholder="ФИО"
+                      aria-label="ФИО утвердившего"
+                      maxLength={nameMax}
+                      onChange={(event) =>
+                        updateApprover(approver.id, {
+                          name: filterPersonNameInput(
+                            event.target.value,
+                            nameMax,
+                          ),
+                        })
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="approvers__trash"
+                      aria-label="Удалить строку утвердившего"
+                      disabled={params.approvers.length <= 1}
+                      onClick={() => removeApprover(approver.id)}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  className="approvers__add"
+                  disabled={
+                    params.approvers.length >= MAX_APPROVERS ||
+                    !layout.canAddApprover
+                  }
+                  title={
+                    !layout.canAddApprover
+                      ? 'На листе нет места для ещё одной строки'
+                      : params.approvers.length >= MAX_APPROVERS
+                        ? 'Достигнут максимум утверждающих'
+                        : 'Добавить утвердившего'
+                  }
+                  onClick={addApprover}
+                >
+                  Добавить утвердившего
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <article className="text-block">
+            <div className="text-block__head">
+              <span className="text-block__label">Город и год</span>
+              {renderFontPtInput('cityYear', 'Город и год')}
+            </div>
+            <div className="text-block__body">
+              <div className="shared-params__pair shared-params__pair--city-year">
+                <input
+                  className="shared-params__control"
+                  value={params.city}
+                  placeholder="Город"
+                  aria-label="Город"
+                  maxLength={charsFor('cityYear', 0.72)}
+                  onChange={(event) =>
+                    patch({
+                      city: event.target.value.slice(
+                        0,
+                        charsFor('cityYear', 0.72),
+                      ),
+                    })
+                  }
+                />
+                <input
+                  className="shared-params__control shared-params__control--year"
+                  value={params.year}
+                  placeholder="Год"
+                  aria-label="Год"
+                  inputMode="numeric"
+                  maxLength={4}
+                  onChange={(event) =>
+                    patch({
+                      year: event.target.value.replace(/[^\d]/g, '').slice(0, 4),
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </article>
         </div>
       </div>
     </section>

@@ -62,3 +62,16 @@ export function clampFontSizePt(value: number): number {
   if (Number.isNaN(value)) return 12
   return Math.min(72, Math.max(8, Math.round(value)))
 }
+
+/**
+ * Обрезает каждую строку до maxChars.
+ * Ввод на строке дальше лимита не продолжается — нужен перевод строки.
+ */
+export function limitLinesToWidth(value: string, maxChars: number): string {
+  const limit = Math.max(1, maxChars)
+  return value
+    .split('\n')
+    .map((line) => line.slice(0, limit))
+    .join('\n')
+}
+

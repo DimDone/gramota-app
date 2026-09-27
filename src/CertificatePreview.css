@@ -17,6 +17,7 @@
 }
 
 .preview-sheet {
+  position: relative;
   background: #ffffff;
   border: 1px solid #d0d4dc;
   box-shadow: 0 8px 28px rgba(20, 24, 36, 0.12);
@@ -26,6 +27,27 @@
   overflow: hidden;
   container-type: inline-size;
   container-name: sheet;
+}
+
+.certificate-background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.preview-sheet__content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-sizing: border-box;
+  text-align: center;
+  color: #1c2230;
 }
 
 .preview-sheet--portrait {
@@ -42,33 +64,37 @@
   max-height: 100%;
 }
 
-.preview-sheet__content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: 0.75em;
-  box-sizing: border-box;
-  text-align: center;
-  color: #1c2230;
-  min-height: 0;
-}
-
-.preview-sheet__main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75em;
-  min-height: 0;
-}
-
-.preview-sheet__footer {
+.preview-sheet__top {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.55em;
-  margin-top: auto;
-  width: 100%;
+  gap: 0.5em;
+}
+
+.preview-doc-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+}
+
+.preview-sheet__middle {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.5em;
+}
+
+.preview-sheet__balance {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-sheet__spacer {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .preview-block {
@@ -84,7 +110,32 @@
   text-transform: uppercase;
 }
 
+.preview-block--documentVerb {
+  font-style: italic;
+  font-weight: 500;
+}
+
+.preview-block--rank {
+  font-weight: 600;
+}
+
+.preview-block--recipientName {
+  font-weight: 700;
+}
+
+.preview-block--recipient {
+  font-weight: 500;
+}
+
+.preview-block--eventInfo {
+  flex: 0 1 auto;
+  min-height: 1.35em;
+  max-height: 55%;
+  overflow: hidden;
+}
+
 .preview-block--approved {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 0.35em;
@@ -93,7 +144,9 @@
 }
 
 .preview-block--cityYear {
+  flex-shrink: 0;
   min-height: 1.35em;
+  margin-top: 0.35em;
 }
 
 .preview-approver {

@@ -40,15 +40,12 @@
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--muted);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.45rem;
 }
 
 .shared-params__hint {
   font-weight: 400;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
+  color: var(--muted);
 }
 
 .shared-params__row {
@@ -140,33 +137,9 @@
   font-weight: 600;
 }
 
-.shared-params__blocks {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.text-block-slot {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.drop-line {
-  height: 3px;
-  margin: 0.1rem 0.15rem;
-  border-radius: 2px;
-  background: var(--accent);
-  box-shadow: 0 0 0 1px rgba(47, 93, 80, 0.2);
-}
-
 .text-block {
   border: 1px solid var(--border);
   background: var(--surface);
-}
-
-.text-block--dragging {
-  opacity: 0.45;
 }
 
 .text-block__head {
@@ -176,17 +149,6 @@
   padding: 0.4rem 0.55rem;
   border-bottom: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.02);
-  cursor: grab;
-}
-
-.text-block__head:active {
-  cursor: grabbing;
-}
-
-.text-block__drag {
-  color: var(--muted);
-  letter-spacing: -0.1em;
-  user-select: none;
 }
 
 .text-block__label {
@@ -201,7 +163,6 @@
   gap: 0.3rem;
   font-size: 0.75rem;
   color: var(--muted);
-  cursor: default;
 }
 
 .text-block__font input {
@@ -216,6 +177,26 @@
 
 .text-block__body {
   padding: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.document-type-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.document-type-fields__verb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.5rem;
+  border: 1px dashed var(--border);
+  background: rgba(0, 0, 0, 0.02);
 }
 
 .approvers {

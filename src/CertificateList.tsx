@@ -174,5 +174,10 @@ export function createCertificate(
   return {
     id: crypto.randomUUID(),
     name,
+    recipientName: '',
+    recipientInfo: '',
+    place: null,
+    degree: null,
+    eventInfo: '',
   }
 }

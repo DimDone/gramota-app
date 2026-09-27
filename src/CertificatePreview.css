@@ -1,0 +1,40 @@
+.preview-anchor {
+  position: absolute;
+  left: 45%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  /* Slot fits both A4 orientations — no layout jump */
+  --a4-short: min(35vw, calc(70vh * 210 / 297));
+  --a4-long: calc(var(--a4-short) * 297 / 210);
+  width: var(--a4-long);
+  height: var(--a4-long);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.preview-slot {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.preview-sheet {
+  background: #ffffff;
+  border: 1px solid #d0d4dc;
+  box-shadow: 0 8px 28px rgba(20, 24, 36, 0.12);
+  box-sizing: border-box;
+}
+
+.preview-sheet--portrait {
+  aspect-ratio: 210 / 297;
+  width: var(--a4-short);
+  height: auto;
+}
+
+.preview-sheet--landscape {
+  aspect-ratio: 297 / 210;
+  width: var(--a4-long);
+  height: auto;
+}

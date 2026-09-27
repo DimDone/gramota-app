@@ -64,6 +64,23 @@
   max-height: 100%;
 }
 
+/* Фиксированный размер для растеризации в PDF (~150 dpi) */
+.preview-sheet--export {
+  border: none;
+  box-shadow: none;
+  max-height: none;
+}
+
+.preview-sheet--export.preview-sheet--portrait {
+  width: 1240px;
+  height: auto;
+}
+
+.preview-sheet--export.preview-sheet--landscape {
+  width: 1754px;
+  height: auto;
+}
+
 .preview-sheet__top {
   flex-shrink: 0;
   display: flex;

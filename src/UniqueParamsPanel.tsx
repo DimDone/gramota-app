@@ -66,9 +66,7 @@ export function UniqueParamsPanel({
     <div className="unique-params">
       {documentKind === 'diplom' && (
         <label className="unique-params__field">
-          <span className="unique-params__label">
-            Степень <em>(необязательно)</em>
-          </span>
+          <span className="unique-params__label">Степень</span>
           <select
             className="unique-params__control"
             value={certificate.degree ?? ''}
@@ -91,6 +89,25 @@ export function UniqueParamsPanel({
           <span className="unique-params__hint">В документе: «N степени»</span>
         </label>
       )}
+
+      {/* Инфо о награждаемом: лимит ширины строки, как у больших полей */}
+      <label className="unique-params__field">
+        <span className="unique-params__label">Информация о награждаемом</span>
+        <textarea
+          className="unique-params__control unique-params__control--mid"
+          value={certificate.recipientInfo}
+          placeholder="Дополнительные сведения"
+          aria-label="Информация о награждаемом"
+          rows={3}
+          onChange={(event) =>
+            tryTextField('recipientInfo', event.target.value, recipientMax)
+          }
+        />
+        <span className="unique-params__hint">
+          До {recipientMax} символов в строке
+          {!layout.canExpandText ? ' · на листе нет места для увеличения' : ''}
+        </span>
+      </label>
 
       {/* ФИО: валидация как у названия грамоты */}
       <label className="unique-params__field">
@@ -117,32 +134,9 @@ export function UniqueParamsPanel({
         />
       </label>
 
-      {/* Инфо о награждаемом: лимит ширины строки, как у больших полей */}
-      <label className="unique-params__field">
-        <span className="unique-params__label">
-          Информация о награждаемом <em>(необязательно)</em>
-        </span>
-        <textarea
-          className="unique-params__control unique-params__control--mid"
-          value={certificate.recipientInfo}
-          placeholder="Дополнительные сведения"
-          aria-label="Информация о награждаемом"
-          rows={3}
-          onChange={(event) =>
-            tryTextField('recipientInfo', event.target.value, recipientMax)
-          }
-        />
-        <span className="unique-params__hint">
-          До {recipientMax} символов в строке
-          {!layout.canExpandText ? ' · на листе нет места для увеличения' : ''}
-        </span>
-      </label>
-
       {documentKind === 'gramota' && (
         <label className="unique-params__field">
-          <span className="unique-params__label">
-            Место <em>(необязательно)</em>
-          </span>
+          <span className="unique-params__label">Место</span>
           <select
             className="unique-params__control"
             value={certificate.place ?? ''}

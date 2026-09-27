@@ -17,6 +17,9 @@ type CertificateListProps = {
   onAdd: () => void
   onRemove: (id: string) => void
   onRename: (id: string, name: string) => void
+  onExport: () => void
+  onImport: () => void
+  onExportPdf: () => void
 }
 
 // --- Иконки действий строки списка ---
@@ -49,6 +52,9 @@ export function CertificateList({
   onAdd,
   onRemove,
   onRename,
+  onExport,
+  onImport,
+  onExportPdf,
 }: CertificateListProps) {
   // --- Локальный режим редактирования названия ---
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -159,10 +165,35 @@ export function CertificateList({
         })}
       </ul>
 
-      {/* Кнопка добавления новой грамоты (внизу списка) */}
-      <button type="button" className="certificate-list__add" onClick={onAdd}>
-        Добавить грамоту
-      </button>
+      {/* Кнопка добавления и обмен шаблонами / PDF */}
+      <div className="certificate-list__footer">
+        <button type="button" className="certificate-list__add" onClick={onAdd}>
+          Добавить документ
+        </button>
+        <div className="certificate-list__io">
+          <button
+            type="button"
+            className="certificate-list__io-btn"
+            onClick={onExport}
+          >
+            Выгрузить
+          </button>
+          <button
+            type="button"
+            className="certificate-list__io-btn"
+            onClick={onImport}
+          >
+            Загрузить
+          </button>
+        </div>
+        <button
+          type="button"
+          className="certificate-list__add"
+          onClick={onExportPdf}
+        >
+          Выгрузить .pdf
+        </button>
+      </div>
     </div>
   )
 }

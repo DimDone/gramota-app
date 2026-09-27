@@ -5,7 +5,16 @@ import { CertificatePreview } from './CertificatePreview'
 import { CertificateList, createCertificate } from './CertificateList'
 import { SharedParamsPanel } from './SharedParamsPanel'
 import { SidePanel } from './SidePanel'
+import { Toast, type ToastMessage } from './Toast'
 import { UniqueParamsPanel } from './UniqueParamsPanel'
+import {
+  buildTemplateFile,
+  exportTemplateJson,
+  parseTemplateFile,
+  pickTemplateJsonFile,
+  serializeTemplate,
+} from './templateFile'
+import { exportCertificatesPdf } from './exportPdf'
 import {
   createDefaultSharedParams,
   DEFAULT_LAYOUT_CAPACITY,
@@ -27,6 +36,7 @@ function App() {
   const [layoutCapacity, setLayoutCapacity] = useState<LayoutCapacity>(
     DEFAULT_LAYOUT_CAPACITY,
   )
+  const [toast, setToast] = useState<ToastMessage | null>(null)
 
   const selectedCertificate =
     certificates.find((item) => item.id === selectedId) ?? certificates[0]
@@ -34,6 +44,12 @@ function App() {
   const handleLayoutCapacity = useCallback((capacity: LayoutCapacity) => {
     setLayoutCapacity(capacity)
   }, [])
+
+  const dismissToast = useCallback(() => setToast(null), [])
+
+  function showToast(text: string, tone: ToastMessage['tone']) {
+    setToast({ id: Date.now(), text, tone })
+  }
 
   function handleAdd() {
     const next = createCertificate()
@@ -62,9 +78,48 @@ function App() {
     )
   }
 
+  async function handleExport() {
+    const template = buildTemplateFile(sharedParams, certificates)
+    await exportTemplateJson(serializeTemplate(template))
+  }
+
+  async function handleImport() {
+    const raw = await pickTemplateJsonFile()
+    if (raw === null) return
+
+    const result = parseTemplateFile(raw)
+    if (!result.ok) {
+      if (result.reason === 'empty') {
+        showToast('Ошибка загрузки: файл пуст', 'error')
+      } else if (result.reason === 'no-documents') {
+        showToast('Ошибка загрузки: нет документов для загрузки', 'error')
+      } else {
+        showToast('Ошибка загрузки: файл не соответствует сигнатуре', 'error')
+      }
+      return
+    }
+
+    setSharedParams(result.shared)
+    setCertificates(result.certificates)
+    setSelectedId(result.certificates[0].id)
+    showToast(`Загружено ${result.certificates.length} документов`, 'success')
+  }
+
+  async function handleExportPdf() {
+    const result = await exportCertificatesPdf(sharedParams, certificates)
+    if (!result.ok) {
+      if (result.reason === 'cancelled') return
+      showToast('Ошибка выгрузки PDF', 'error')
+      return
+    }
+    showToast(`Выгружено ${result.count} PDF`, 'success')
+  }
+
   return (
     <div className="app">
-      <SidePanel side="left" title="Список грамот">
+      <Toast message={toast} onDismiss={dismissToast} />
+
+      <SidePanel side="left" title="Список документов о награждении">
         <CertificateList
           certificates={certificates}
           selectedId={selectedId}
@@ -72,6 +127,9 @@ function App() {
           onAdd={handleAdd}
           onRemove={handleRemove}
           onRename={handleRename}
+          onExport={() => void handleExport()}
+          onImport={() => void handleImport()}
+          onExportPdf={() => void handleExportPdf()}
         />
       </SidePanel>
 

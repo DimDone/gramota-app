@@ -409,6 +409,34 @@ export function SharedParamsPanel({
             </div>
           </article>
         </div>
+
+        {/* Кегли полей уникальных параметров (значения — общие для всех документов) */}
+        <div className="shared-params__section">
+          <h3 className="shared-params__section-title">
+            Шрифты уникальных полей
+          </h3>
+
+          <article className="text-block">
+            <div className="text-block__head">
+              <span className="text-block__label">Информация о награждаемом</span>
+              {renderFontPtInput('recipientInfo', 'Информация о награждаемом')}
+            </div>
+          </article>
+
+          <article className="text-block">
+            <div className="text-block__head">
+              <span className="text-block__label">ФИО награждаемого</span>
+              {renderFontPtInput('recipientName', 'ФИО награждаемого')}
+            </div>
+          </article>
+
+          <article className="text-block">
+            <div className="text-block__head">
+              <span className="text-block__label">Информация о мероприятии</span>
+              {renderFontPtInput('eventInfo', 'Информация о мероприятии')}
+            </div>
+          </article>
+        </div>
       </div>
     </section>
   )

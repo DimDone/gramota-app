@@ -8,7 +8,7 @@ const PERSON_ALLOWED_CHARS = /^[A-Za-zА-Яа-яЁё \-]*$/
 const VALID_NAME =
   /^[A-Za-zА-Яа-яЁё0-9]+(?:-[A-Za-zА-Яа-яЁё]+)*(?: [A-Za-zА-Яа-яЁё0-9]+(?:-[A-Za-zА-Яа-яЁё]+)*)*$/
 
-export const DEFAULT_CERTIFICATE_NAME = 'Грамота'
+export const DEFAULT_CERTIFICATE_NAME = 'Документ'
 export const MAX_CERTIFICATE_NAME_LENGTH = 255
 
 function filterNameLikeInput(
